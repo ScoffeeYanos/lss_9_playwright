@@ -87,6 +87,7 @@ async def alert_vehicle(page,vehicle):
         await vehicle_button.click()
         print(f"TASKS.manage_alert selected vehicle: {vehicle}")
         return True
+
     else:
         return False
 
@@ -110,6 +111,7 @@ async def manage_alert(page, id):
     missing_text = missing_text.split(":")[1].strip()
     missing_text = missing_text.split(",")
     missing_text = [s.strip().replace("\xa0", " ") for s in missing_text]
+    missing_text = [s for s in missing_text if s and s[0].isdigit()]
     await asyncio.sleep(0.5)
     alert = True
     for vehicle in missing_text:
