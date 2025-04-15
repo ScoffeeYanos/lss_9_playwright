@@ -1,8 +1,4 @@
 import asyncio
-
-from playwright.async_api import async_playwright
-
-import bot
 from bot.login import *
 from bot import tasks
 from bot.manager import PlaywrightManager
@@ -15,7 +11,7 @@ async def main():
     await tasks.set_log(True)
     await tasks.set_context(bot.context)
     await tasks.set_page(bot.page)
-    scheduler = AsyncScheduler()
+    scheduler = AsyncScheduler(log=True)
     scheduler.start()
     await tasks.set_scheduler(scheduler)
     await tasks.login(LG, PW)
@@ -26,4 +22,9 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        pass
