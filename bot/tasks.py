@@ -1,8 +1,6 @@
 import asyncio
 import re
 
-from bot.selectors import *
-
 _scheduler = None
 _context = None
 _page = None
@@ -37,13 +35,13 @@ async def set_page(page):
 
 async def login(mail, password):
     if _page:
-        await _page.fill(USERNAME_INPUT, mail)
+        await _page.fill("#user_email", mail)
         if _log:
             print(f"TASKS.login filled Username")
-        await _page.fill(PASSWORD_INPUT, password)
+        await _page.fill("#user_password", password)
         if _log:
             print(f"TASKS.login filled Password")
-        await _page.click(LOGIN_BUTTON)
+        await _page.click("#new_user > input")
         if _log:
             print(f"TASKS.login clicked Button")
     else:
@@ -79,42 +77,53 @@ async def get_alerts(red=False, yellow=False, green=False):
     else:
         print(f"TASKS.login missing Page")
 
+async def alert_vehicle(page,vehicle):
+    vehicle_button = await page.query_selector(f'[search_attribute*="{vehicle}"]')
+    if not vehicle_button:
+        print(f"TASKS.manage_alert vehicle_button not found: {vehicle}")
+        return False
+    vehicle_check = await vehicle_button.query_selector('[class*="label-success"]')
+    if vehicle_check:
+        await vehicle_button.click()
+        print(f"TASKS.manage_alert selected vehicle: {vehicle}")
+        return True
+    else:
+        return False
+
 
 async def manage_alert(page, id):
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
-    missing = await page.query_selector('[id="missing_text"]')
-    print(missing)
-    if not missing:
-        return
-    missing_sub = await missing.query_selector('[data-requirement-type="vehicles"]')
-    if not missing_sub:
-        return
+    missing_sub = None
+    while not missing_sub:
+        missing = await page.query_selector('[id="missing_text"]')
+        print(missing)
+        missing_sub = await missing.query_selector('[data-requirement-type="vehicles"]')
+        if not missing_sub:
+            alert = await alert_vehicle(page,"GEN")
+            if not alert:
+                return
+            await page.click('#alert_btn')
+            await page.goto(f"https://www.leitstellenspiel.de/missions/{id}/backalarmDriving")
+            print(f"TASKS.manage_alert GEN ALERTED")
     missing_text = await missing_sub.text_content()
     print(missing_text)
     missing_text = missing_text.split(":")[1].strip()
     missing_text = missing_text.split(",")
     missing_text = [s.strip().replace("\xa0", " ") for s in missing_text]
+    await asyncio.sleep(0.5)
     alert = True
     for vehicle in missing_text:
-        vehicle_button = await page.query_selector(f'[search_attribute="{vehicle}"]')
-        if not vehicle_button:
-            print(f"TASKS.manage_alert vehicle_button not found: {vehicle}")
-            alert = False
-            break
-        vehicle_check = await vehicle_button.query_selector('[class*="label-success"]')
-        if vehicle_check:
-            await vehicle_button.click()
-            print(f"TASKS.manage_alert selected vehicle: {vehicle}")
-        else:
-            alert = False
+        alert = await alert_vehicle(page,vehicle)
+        if not alert:
             break
     if alert:
         await page.click('#alert_btn')
         print(f"TASKS.manage_alert ALERTED")
 
+
 async def manage_all_alerts(page=None):
     mission_ids = await get_alerts(red=True)
     if not page:
         page = await _context.new_page()
-    for id in mission_ids:
-        await manage_alert(page, id)
+    for var in mission_ids:
+        await manage_alert(page, var)
