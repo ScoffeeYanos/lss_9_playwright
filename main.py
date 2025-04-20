@@ -17,7 +17,8 @@ async def main():
     await tasks.login(LG, PW)
     await asyncio.sleep(3)
     print(await tasks.get_alerts())
-    await tasks.manage_all_alerts()
+    while True:
+        await tasks.manage_all_alerts()
     await asyncio.sleep(60)
 
 
