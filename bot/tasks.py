@@ -1,6 +1,6 @@
 import asyncio
-
-from bot.replacements import REPLACEMENTS
+import importlib
+import bot.replacements
 
 _scheduler = None
 _context = None
@@ -83,11 +83,10 @@ async def alert_vehicle(page, vehicle):
         return False
 
 
-async def manage_alert(page, id):
+async def manage_alert(page, id, REPLACEMENTS):
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
     missing_sub = None
     missing = await page.query_selector('[id="missing_text"]')
-    print(missing)
     missing_sub = None
     if missing:
         missing_sub = await missing.query_selector('[data-requirement-type="vehicles"]')
@@ -124,8 +123,14 @@ async def manage_alert(page, id):
 async def manage_all_alerts():
     mission_ids = await get_alerts(red=True)
     page = await _context.new_page()
+    REPLACEMENTS = get_replacements()
     for var in mission_ids:
-        await manage_alert(page, var)
+        await manage_alert(page, var, REPLACEMENTS)
     await page.close()
     print(f"\033[96mTASKS: LOOP COMPLETED\033[0m")
     await asyncio.sleep(30)
+
+
+def get_replacements():
+    importlib.reload(bot.replacements)
+    return bot.replacements.REPLACEMENTS
