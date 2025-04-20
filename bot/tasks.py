@@ -1,7 +1,9 @@
 import asyncio
 import importlib
 import bot.replacements
-
+import re
+import math
+from collections import defaultdict
 _scheduler = None
 _context = None
 _page = None
@@ -83,36 +85,15 @@ async def alert_vehicle(page, vehicle):
         return False
 
 
-async def manage_alert(page, id, REPLACEMENTS):
-    await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
-    missing_sub = None
-    missing = await page.query_selector('[id="missing_text"]')
-    missing_sub = None
-    if missing:
-        missing_sub = await missing.query_selector('[data-requirement-type="vehicles"]')
-    if not missing_sub:
-        alert = await alert_vehicle(page, "GEN")
-        if not alert:
-            return
-        await page.click('#alert_btn')
-        await page.goto(f"https://www.leitstellenspiel.de/missions/{id}/backalarmDriving")
-        print(f"TASKS.manage_alert GEN ALERTED")
-        await asyncio.sleep(0.5)
-        missing = await page.query_selector('[id="missing_text"]')
-        missing_sub = await missing.query_selector('[data-requirement-type="vehicles"]')
-    if not missing_sub:
-        return
-    missing_text = (await missing_sub.text_content()).split(":")[1].strip().split(",")
-    missing_text = [s.strip().replace("\xa0", " ") for s in missing_text]
-    print(missing_text)
-    missing_text = [REPLACEMENTS.get(v, v) for v in missing_text]
-    print(missing_text)
-    await asyncio.sleep(0.5)
+async def manage_alert(page, id, REPLACEMENTS,PERSONEL_FW,NAME_SETS):
+    missing_vehicles = await missing_analyze(page,id,REPLACEMENTS,PERSONEL_FW,NAME_SETS)
     alert = True
-    for vehicle in missing_text:
-        if not vehicle[0].isdigit():
-            continue
-        alert = await alert_vehicle(page, vehicle)
+    print(missing_vehicles)
+    if missing_vehicles == -1:
+        return
+    for key,value in missing_vehicles.items():
+        for _ in range(value):
+            alert = await alert_vehicle(page, key)
         if not alert:
             break
     if alert:
@@ -123,9 +104,9 @@ async def manage_alert(page, id, REPLACEMENTS):
 async def manage_all_alerts():
     mission_ids = await get_alerts(red=True)
     page = await _context.new_page()
-    REPLACEMENTS = get_replacements()
+    REPLACEMENTS,PERSONEL_FW,NAME_SETS = get_replacements()
     for var in mission_ids:
-        await manage_alert(page, var, REPLACEMENTS)
+        await manage_alert(page, var, REPLACEMENTS,PERSONEL_FW,NAME_SETS)
     await page.close()
     print(f"\033[96mTASKS: LOOP COMPLETED\033[0m")
     await asyncio.sleep(30)
@@ -133,4 +114,85 @@ async def manage_all_alerts():
 
 def get_replacements():
     importlib.reload(bot.replacements)
-    return bot.replacements.REPLACEMENTS
+    return bot.replacements.REPLACEMENTS,bot.replacements.PERSONNEL_FW,bot.replacements.NAME_SETS
+
+
+async def missing_analyze(page,id,REPLACEMENTS,PERSONNEL_FW,NAME_SETS):
+    await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
+    missing = await page.query_selector('[id="missing_text"]')
+    if not missing:
+        raise RuntimeError(f"Missing element 'missing_text' on mission page {id}")
+    if (await missing.get_attribute('style')) == 'display: none; ':
+        alert = await alert_vehicle(page, "GEN")
+        if not alert:
+            return -1
+        await page.click('#alert_btn')
+        await page.goto(f"https://www.leitstellenspiel.de/missions/{id}/backalarmDriving")
+        await asyncio.sleep(0.5)
+        missing = await page.query_selector('[id="missing_text"]')
+    if (await missing.get_attribute('style')) == 'display: none; ':
+        raise RuntimeError(f"TASKS.missing_analyze: Missning Display not found")
+    missing_vehicles = await missing.query_selector('[data-requirement-type="vehicles"]')
+    missing_personnel = await missing.query_selector('[data-requirement-type="personnel"]')
+    missing_other = await missing.query_selector('[data-requirement-type="other"]')
+    if missing_vehicles:
+        missing_vehicles = (await missing_vehicles.text_content()).split(":")[1].strip().split(",")
+        missing_vehicles = [s.strip().replace("\xa0", " ") for s in missing_vehicles]
+        missing_vehicles = [REPLACEMENTS.get(v, v) for v in missing_vehicles]
+    else:
+        missing_vehicles = []
+
+    if missing_personnel:
+        missing_personnel = (await missing_personnel.text_content()).split(":")[1].strip().split(",")
+        missing_personnel = [s.strip().replace("\xa0", " ") for s in missing_personnel]
+        missing_personnel = [REPLACEMENTS.get(v, v) for v in missing_personnel]
+    else:
+        missing_personnel = []
+
+    if missing_other:
+        missing_other = (await missing_other.text_content()).split(":")[1].strip().split(",")
+        missing_other = [s.strip().replace("\xa0", " ") for s in missing_other]
+        missing_other = [REPLACEMENTS.get(v, v) for v in missing_other]
+    else:
+        missing_other = []
+
+    vehicles_pre = defaultdict(int)
+    for entry in missing_vehicles:
+        match = re.match(r"(\d+)\s*(.+)", entry)
+        if match:
+            value = int(match.group(1))
+            label = match.group(2).strip()
+            vehicles_pre[label] = vehicles_pre[label] + value
+
+    vehicles = defaultdict(int)
+    for key, label in NAME_SETS.items():
+        total = sum(
+            count for vkey, count in vehicles_pre.items() if key in vkey
+        )
+        vehicles[label] = vehicles[label] + total
+
+    personnel = defaultdict(int)
+    for entry in missing_personnel:
+        match = re.match(r"(\d+)\s*(.+)", entry)
+        if match:
+            value = int(match.group(1))
+            label = match.group(2)
+            personnel[label] = value
+
+    other = defaultdict(int)
+    for entry in missing_other:
+        match = re.match(r"(\d+)\s*(.+)", entry)
+        if match:
+            value = int(match.group(1))
+            label = match.group(2)
+            other[label] = value
+
+    for key,label in personnel.items():
+        if key == "Feuerwehrleute":
+            count = sum( vehicles[name] * PERSONNEL_FW.get(name, PERSONNEL_FW.get("default",0)) for name in vehicles )
+            if label > count:
+                missing = label - count
+                vehicles_to_send = math.ceil(missing/PERSONNEL_FW.get(PERSONNEL_FW.get("personnel_vehicle")))
+                vehicles[PERSONNEL_FW.get("personnel_vehicle")] = vehicles[PERSONNEL_FW.get("personnel_vehicle")] + vehicles_to_send
+
+    return vehicles
