@@ -15,3 +15,9 @@ PERSONNEL_FW = {
     "default": 1,
     "personnel_vehicle": "LF"
 }
+WATER_FW = {
+    "LF": 2000,
+    "SW": 0.25,
+    "default": 0,
+    "water_vehicle": "LF"
+}

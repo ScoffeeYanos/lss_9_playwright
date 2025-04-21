@@ -4,12 +4,14 @@ import bot.replacements
 import re
 import math
 from collections import defaultdict
+
 _context = None
 _page = None
 
 REPLACEMENTS = {}
 PERSONNEL_FW = {}
 NAME_SETS = {}
+WATER_FW = {}
 
 
 async def set_context(context):
@@ -66,12 +68,12 @@ async def alert_vehicle(page, vehicle):
 
 async def manage_alert(page, id):
     await page.reload()
-    missing_vehicles = await missing_analyze(page,id)
+    missing_vehicles = await missing_analyze(page, id)
     alert = True
     print(missing_vehicles)
     if missing_vehicles == -1:
         return
-    for key,value in missing_vehicles.items():
+    for key, value in missing_vehicles.items():
         for _ in range(value):
             alert = await alert_vehicle(page, key)
         if not alert:
@@ -82,11 +84,12 @@ async def manage_alert(page, id):
 
 
 async def manage_all_alerts():
-    global REPLACEMENTS, PERSONNEL_FW, NAME_SETS
+    global REPLACEMENTS, PERSONNEL_FW, NAME_SETS, WATER_FW
     importlib.reload(bot.replacements)
     REPLACEMENTS = bot.replacements.REPLACEMENTS
     PERSONNEL_FW = bot.replacements.PERSONNEL_FW
     NAME_SETS = bot.replacements.NAME_SETS
+    WATER_FW = bot.replacements.WATER_FW
 
     mission_ids = await get_alerts(red=True)
     page = await _context.new_page()
@@ -97,7 +100,7 @@ async def manage_all_alerts():
     await asyncio.sleep(30)
 
 
-async def missing_analyze(page,id):
+async def missing_analyze(page, id):
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
     missing = await page.query_selector('[id="missing_text"]')
     if not missing:
@@ -157,12 +160,20 @@ async def missing_analyze(page,id):
             label = match.group(2)
             other[label] = value
 
-    for key,label in personnel.items():
+    for key, label in personnel.items():
         if key == "Feuerwehrleute" or key == "Feuerwehrmann":
-            count = sum( vehicles[name] * PERSONNEL_FW.get(name, PERSONNEL_FW.get("default",0)) for name in vehicles )
+            count = sum(vehicles[name] * PERSONNEL_FW.get(name, PERSONNEL_FW.get("default", 0)) for name in vehicles)
             if label > count:
                 missing = label - count
-                vehicles_to_send = math.ceil(missing/PERSONNEL_FW.get(PERSONNEL_FW.get("personnel_vehicle")))
+                vehicles_to_send = math.ceil(missing / PERSONNEL_FW.get(PERSONNEL_FW.get("personnel_vehicle")))
                 vehicles[PERSONNEL_FW.get("personnel_vehicle")] = vehicles[PERSONNEL_FW.get("personnel_vehicle")] + vehicles_to_send
+
+    for key, label in other.items():
+        if key == "l. Wasser":
+            count = sum(vehicles[name] * WATER_FW.get(name, WATER_FW.get("default", 0)) for name in vehicles)
+            if label > count:
+                missing = label - count
+                vehicles_to_send = math.ceil(missing / WATER_FW.get(WATER_FW.get("water_vehicle")))
+                vehicles[PERSONNEL_FW.get("water_vehicle")] = vehicles[PERSONNEL_FW.get("water_vehicle")] + vehicles_to_send
 
     return vehicles
