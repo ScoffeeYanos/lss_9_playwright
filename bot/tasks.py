@@ -4,50 +4,29 @@ import bot.replacements
 import re
 import math
 from collections import defaultdict
-_scheduler = None
 _context = None
 _page = None
-_log = False
-global mission_global
 
-
-async def set_log(log):
-    global _log
-    _log = log
-
-
-async def set_scheduler(scheduler):
-    global _scheduler
-    _scheduler = scheduler
-    if _log:
-        print(f"\033[94mTASKS: Scheduler set\033[0m")
+REPLACEMENTS = {}
+PERSONNEL_FW = {}
+NAME_SETS = {}
 
 
 async def set_context(context):
     global _context
     _context = context
-    if _log:
-        print(f"\033[94mTASKS: Context set\033[0m")
 
 
 async def set_page(page):
     global _page
     _page = page
-    if _log:
-        print(f"\033[94mTASKS: Page set\033[0m")
 
 
 async def login(mail, password):
     if _page:
         await _page.fill("#user_email", mail)
-        if _log:
-            print(f"TASKS.login filled Username")
         await _page.fill("#user_password", password)
-        if _log:
-            print(f"TASKS.login filled Password")
         await _page.click("#new_user > input")
-        if _log:
-            print(f"TASKS.login clicked Button")
         print(f"\033[94mTASKS: Login comleted\033[0m")
     else:
         print(f"TASKS.login missing Page")
@@ -81,14 +60,13 @@ async def alert_vehicle(page, vehicle):
         await vehicle_button.click()
         print(f"TASKS.manage_alert selected vehicle: {vehicle}")
         return True
-
     else:
         return False
 
 
-async def manage_alert(page, id, REPLACEMENTS,PERSONEL_FW,NAME_SETS):
+async def manage_alert(page, id):
     await page.reload()
-    missing_vehicles = await missing_analyze(page,id,REPLACEMENTS,PERSONEL_FW,NAME_SETS)
+    missing_vehicles = await missing_analyze(page,id)
     alert = True
     print(missing_vehicles)
     if missing_vehicles == -1:
@@ -104,22 +82,22 @@ async def manage_alert(page, id, REPLACEMENTS,PERSONEL_FW,NAME_SETS):
 
 
 async def manage_all_alerts():
+    global REPLACEMENTS, PERSONNEL_FW, NAME_SETS
+    importlib.reload(bot.replacements)
+    REPLACEMENTS = bot.replacements.REPLACEMENTS
+    PERSONNEL_FW = bot.replacements.PERSONNEL_FW
+    NAME_SETS = bot.replacements.NAME_SETS
+
     mission_ids = await get_alerts(red=True)
     page = await _context.new_page()
-    REPLACEMENTS,PERSONEL_FW,NAME_SETS = get_replacements()
     for var in mission_ids:
-        await manage_alert(page, var, REPLACEMENTS,PERSONEL_FW,NAME_SETS)
+        await manage_alert(page, var)
     await page.close()
     print(f"\033[96mTASKS: LOOP COMPLETED\033[0m")
     await asyncio.sleep(30)
 
 
-def get_replacements():
-    importlib.reload(bot.replacements)
-    return bot.replacements.REPLACEMENTS,bot.replacements.PERSONNEL_FW,bot.replacements.NAME_SETS
-
-
-async def missing_analyze(page,id,REPLACEMENTS,PERSONNEL_FW,NAME_SETS):
+async def missing_analyze(page,id):
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
     missing = await page.query_selector('[id="missing_text"]')
     if not missing:
@@ -137,26 +115,16 @@ async def missing_analyze(page,id,REPLACEMENTS,PERSONNEL_FW,NAME_SETS):
     missing_vehicles = await missing.query_selector('[data-requirement-type="vehicles"]')
     missing_personnel = await missing.query_selector('[data-requirement-type="personnel"]')
     missing_other = await missing.query_selector('[data-requirement-type="other"]')
-    if missing_vehicles:
-        missing_vehicles = (await missing_vehicles.text_content()).split(":")[1].strip().split(",")
-        missing_vehicles = [s.strip().replace("\xa0", " ") for s in missing_vehicles]
-        missing_vehicles = [REPLACEMENTS.get(v, v) for v in missing_vehicles]
-    else:
-        missing_vehicles = []
 
-    if missing_personnel:
-        missing_personnel = (await missing_personnel.text_content()).split(":")[1].strip().split(",")
-        missing_personnel = [s.strip().replace("\xa0", " ") for s in missing_personnel]
-        missing_personnel = [REPLACEMENTS.get(v, v) for v in missing_personnel]
-    else:
-        missing_personnel = []
+    async def parse_missing_block(el, replacements):
+        if not el:
+            return []
+        text = (await el.text_content()).split(":")[1].strip().split(",")
+        return [replacements.get(s.strip().replace("\xa0", " "), s.strip().replace("\xa0", " ")) for s in text]
 
-    if missing_other:
-        missing_other = (await missing_other.text_content()).split(":")[1].strip().split(",")
-        missing_other = [s.strip().replace("\xa0", " ") for s in missing_other]
-        missing_other = [REPLACEMENTS.get(v, v) for v in missing_other]
-    else:
-        missing_other = []
+    missing_vehicles = await parse_missing_block(missing_vehicles, REPLACEMENTS)
+    missing_personnel = await parse_missing_block(missing_personnel, REPLACEMENTS)
+    missing_other = await parse_missing_block(missing_other, REPLACEMENTS)
     print(missing_vehicles)
     vehicles_pre = defaultdict(int)
     for entry in missing_vehicles:
