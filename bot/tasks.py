@@ -63,7 +63,8 @@ async def get_alerts(red=False, yellow=False, green=False):
                 id_split = id.split("_")
                 if len(id_split) == 3 and id_split[2].isdigit():
                     id_num = int(id_split[2])
-                    mission_ids.append(id_num)
+                    if int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute("timeleft")) <= 600000:
+                        mission_ids.append(id_num)
         print(f"\033[96mMissionIDs:{mission_ids}\033[0m")
         return mission_ids
     else:
@@ -86,6 +87,7 @@ async def alert_vehicle(page, vehicle):
 
 
 async def manage_alert(page, id, REPLACEMENTS,PERSONEL_FW,NAME_SETS):
+    await page.reload()
     missing_vehicles = await missing_analyze(page,id,REPLACEMENTS,PERSONEL_FW,NAME_SETS)
     alert = True
     print(missing_vehicles)
@@ -155,7 +157,7 @@ async def missing_analyze(page,id,REPLACEMENTS,PERSONNEL_FW,NAME_SETS):
         missing_other = [REPLACEMENTS.get(v, v) for v in missing_other]
     else:
         missing_other = []
-
+    print(missing_vehicles)
     vehicles_pre = defaultdict(int)
     for entry in missing_vehicles:
         match = re.match(r"(\d+)\s*(.+)", entry)
@@ -188,7 +190,7 @@ async def missing_analyze(page,id,REPLACEMENTS,PERSONNEL_FW,NAME_SETS):
             other[label] = value
 
     for key,label in personnel.items():
-        if key == "Feuerwehrleute":
+        if key == "Feuerwehrleute" or key == "Feuerwehrmann":
             count = sum( vehicles[name] * PERSONNEL_FW.get(name, PERSONNEL_FW.get("default",0)) for name in vehicles )
             if label > count:
                 missing = label - count

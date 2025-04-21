@@ -5,10 +5,13 @@ REPLACEMENTS = {
 NAME_SETS = {
     "Löschfahrzeug":"LF",
     "Drehleiter":"DLK",
-    "Rüstwagen":"RW"
+    "Rüstwagen":"RW",
+    "ELW":"ELW",
+    "GW-Öl":"GW-Öl",
+    "Schlauchwagen":"SW"
 }
 PERSONNEL_FW = {
-    "LF":5,
+    "LF":4,
     "default":1,
     "personnel_vehicle":"LF"
 }
