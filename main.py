@@ -10,11 +10,9 @@ async def main():
     context = await browser.new_context()
     page = await context.new_page()
     await page.goto("https://www.leitstellenspiel.de/users/sign_in")
-    await tasks.set_context(context)
-    await tasks.set_page(page)
     await tasks.login(LG, PW)
     while True:
-        await tasks.manage_all_alerts()
+        await tasks.manage_all_alerts(context,page)
 
 if __name__ == "__main__":
     try:

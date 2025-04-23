@@ -6,25 +6,12 @@ import math
 import bot.subtasks
 from collections import defaultdict
 
-from bot.subtasks import get_missing_text_string
-
-_context = None
-_page = None
+from bot.subtasks import *
 
 REPLACEMENTS = {}
 PERSONNEL_FW = {}
 NAME_SETS = {}
 WATER_FW = {}
-
-
-async def set_context(context):
-    global _context
-    _context = context
-
-
-async def set_page(page):
-    global _page
-    _page = page
 
 
 async def login(mail, password):
@@ -37,22 +24,13 @@ async def login(mail, password):
         print(f"TASKS.login missing Page")
 
 
-async def get_alerts():
-    if _page:
-        elements = await _page.query_selector_all('[class*="mission_panel_red"]')
-        mission_ids = []
-        for element in elements:
-            id = await element.get_attribute("id")
-            if id and id.startswith("mission_panel_"):
-                id_split = id.split("_")
-                if len(id_split) == 3 and id_split[2].isdigit():
-                    id_num = int(id_split[2])
-                    if int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute("timeleft")) <= 600000:
-                        mission_ids.append(id_num)
-        print(f"\033[96mMissionIDs:{mission_ids}\033[0m")
-        return mission_ids
-    else:
-        print(f"\033[91mTASKS.login missing Page\033[0m")
+async def refresh_imports():
+    global REPLACEMENTS, PERSONNEL_FW, NAME_SETS, WATER_FW
+    importlib.reload(bot.replacements)
+    REPLACEMENTS = bot.replacements.REPLACEMENTS
+    PERSONNEL_FW = bot.replacements.PERSONNEL_FW
+    NAME_SETS = bot.replacements.NAME_SETS
+    WATER_FW = bot.replacements.WATER_FW
 
 
 async def alert_vehicle(page, vehicle):
@@ -72,7 +50,7 @@ async def alert_vehicle(page, vehicle):
 async def manage_alert(page, id):
     await page.reload()
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
-    missing_vehicles = await missing_analyze(await get_missing_text_string(page))
+    missing_vehicles = await missing_analyze(page,await get_missing_text_string(page))
     alert = True
     print(missing_vehicles)
     if missing_vehicles == -1:
@@ -87,24 +65,7 @@ async def manage_alert(page, id):
         print(f"TASKS.manage_alert ALERTED")
 
 
-async def manage_all_alerts():
-    global REPLACEMENTS, PERSONNEL_FW, NAME_SETS, WATER_FW
-    importlib.reload(bot.replacements)
-    REPLACEMENTS = bot.replacements.REPLACEMENTS
-    PERSONNEL_FW = bot.replacements.PERSONNEL_FW
-    NAME_SETS = bot.replacements.NAME_SETS
-    WATER_FW = bot.replacements.WATER_FW
-
-    mission_ids = await get_alerts()
-    page = await _context.new_page()
-    for var in mission_ids:
-        await manage_alert(page, var)
-    await page.close()
-    print(f"\033[96mTASKS: LOOP COMPLETED\033[0m")
-    await asyncio.sleep(30)
-
-
-async def missing_analyze(missing):
+async def missing_analyze(page,missing):
     if not missing:
         raise RuntimeError(f"Missing element 'missing_text' on mission page {id}")
     if (await missing.get_attribute('style')) == 'display: none; ':
@@ -179,3 +140,14 @@ async def missing_analyze(missing):
                 vehicles[PERSONNEL_FW.get("water_vehicle")] = vehicles[PERSONNEL_FW.get("water_vehicle")] + vehicles_to_send
 
     return vehicles
+
+
+async def manage_all_alerts(context,mainpage,sleeptime = 30):
+    await refresh_imports()
+    mission_ids = await get_missions(mainpage,returnid=True)
+    mission_page = await context.new_page()
+    for mission_id in mission_ids:
+        await manage_alert(mission_page, mission_id)
+    await mission_page.close()
+    print(f"\033[96mTASKS: LOOP COMPLETED\033[0m")
+    await asyncio.sleep(sleeptime)
