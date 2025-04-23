@@ -20,3 +20,17 @@ async def get_missions(page,red = False,yellow = False,green = False,timedlimit 
                     mission_ids.append(int(id_split[2]))
     else:
         return mission_elements
+
+
+async def alert_vehicle(page, vehicle):
+    vehicle_button = await page.query_selector(f'[search_attribute*="{vehicle}"]')
+    if not vehicle_button:
+        print(f"\033[95mTASKS.manage_alert vehicle_button not found: {vehicle}\033[0m")
+        return False
+    vehicle_check = await vehicle_button.query_selector('[class*="label-success"]')
+    if vehicle_check:
+        await vehicle_button.click()
+        print(f"TASKS.manage_alert selected vehicle: {vehicle}")
+        return True
+    else:
+        return False

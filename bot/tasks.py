@@ -14,16 +14,6 @@ NAME_SETS = {}
 WATER_FW = {}
 
 
-async def login(mail, password):
-    if _page:
-        await _page.fill("#user_email", mail)
-        await _page.fill("#user_password", password)
-        await _page.click("#new_user > input")
-        print(f"\033[94mTASKS: Login comleted\033[0m")
-    else:
-        print(f"TASKS.login missing Page")
-
-
 async def refresh_imports():
     global REPLACEMENTS, PERSONNEL_FW, NAME_SETS, WATER_FW
     importlib.reload(bot.replacements)
@@ -33,22 +23,17 @@ async def refresh_imports():
     WATER_FW = bot.replacements.WATER_FW
 
 
-async def alert_vehicle(page, vehicle):
-    vehicle_button = await page.query_selector(f'[search_attribute*="{vehicle}"]')
-    if not vehicle_button:
-        print(f"\033[95mTASKS.manage_alert vehicle_button not found: {vehicle}\033[0m")
-        return False
-    vehicle_check = await vehicle_button.query_selector('[class*="label-success"]')
-    if vehicle_check:
-        await vehicle_button.click()
-        print(f"TASKS.manage_alert selected vehicle: {vehicle}")
-        return True
+async def login(page, mail, password):
+    if page:
+        await page.fill("#user_email", mail)
+        await page.fill("#user_password", password)
+        await page.click("#new_user > input")
+        print(f"\033[94mTASKS: Login comleted\033[0m")
     else:
-        return False
+        print(f"TASKS.login missing Page")
 
 
 async def manage_alert(page, id):
-    await page.reload()
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
     missing_vehicles = await missing_analyze(page,await get_missing_text_string(page))
     alert = True
