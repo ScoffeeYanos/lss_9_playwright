@@ -1,20 +1,20 @@
 import asyncio
-from bot.login import *
+from playwright.async_api import async_playwright
+
 from bot import tasks
-from bot.manager import PlaywrightManager
 
 
 async def main():
-    bot = PlaywrightManager(log=True)
-    await bot.start()
-    await tasks.set_context(bot.context)
-    await tasks.set_page(bot.page)
+    playwright = await async_playwright().start()
+    browser = await playwright.chromium.launch(headless=True)
+    context = await browser.new_context()
+    page = await context.new_page()
+    await page.goto("https://www.leitstellenspiel.de/users/sign_in")
+    await tasks.set_context(context)
+    await tasks.set_page(page)
     await tasks.login(LG, PW)
-    await asyncio.sleep(3)
-    print(await tasks.get_alerts())
     while True:
         await tasks.manage_all_alerts()
-
 
 if __name__ == "__main__":
     try:

@@ -3,7 +3,10 @@ import importlib
 import bot.replacements
 import re
 import math
+import bot.subtasks
 from collections import defaultdict
+
+from bot.subtasks import get_missing_text_string
 
 _context = None
 _page = None
@@ -34,7 +37,7 @@ async def login(mail, password):
         print(f"TASKS.login missing Page")
 
 
-async def get_alerts(red=False, yellow=False, green=False):
+async def get_alerts():
     if _page:
         elements = await _page.query_selector_all('[class*="mission_panel_red"]')
         mission_ids = []
@@ -68,7 +71,8 @@ async def alert_vehicle(page, vehicle):
 
 async def manage_alert(page, id):
     await page.reload()
-    missing_vehicles = await missing_analyze(page, id)
+    await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
+    missing_vehicles = await missing_analyze(await get_missing_text_string(page))
     alert = True
     print(missing_vehicles)
     if missing_vehicles == -1:
@@ -91,7 +95,7 @@ async def manage_all_alerts():
     NAME_SETS = bot.replacements.NAME_SETS
     WATER_FW = bot.replacements.WATER_FW
 
-    mission_ids = await get_alerts(red=True)
+    mission_ids = await get_alerts()
     page = await _context.new_page()
     for var in mission_ids:
         await manage_alert(page, var)
@@ -100,9 +104,7 @@ async def manage_all_alerts():
     await asyncio.sleep(30)
 
 
-async def missing_analyze(page, id):
-    await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
-    missing = await page.query_selector('[id="missing_text"]')
+async def missing_analyze(missing):
     if not missing:
         raise RuntimeError(f"Missing element 'missing_text' on mission page {id}")
     if (await missing.get_attribute('style')) == 'display: none; ':
