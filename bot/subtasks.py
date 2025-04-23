@@ -1,15 +1,33 @@
 async def get_missing_text_string(page):
+    """
+
+    :param page: Page to operate on. Needs to be opened on a direct alert page
+    :return: Return The complete missing Text
+    """
     return await page.query_selector('[id="missing_text"]')
 
-async def get_missions(page,red = False,yellow = False,green = False,timedlimit = 600_000,returnid=False):
+
+async def get_missions(page, red:bool=False, yellow:bool=False, green:bool=False, timedlimit:int=600_000, returnid:bool=False):
+    """
+
+    :param page: Page to operate on. Needs to be opened main window or on alert list window
+    :param red: include red alerts
+    :param yellow: include red alerts
+    :param green: include red alerts
+    :param timedlimit: set timed missions max time value
+    :param returnid: return only id of elements
+    :return:
+    """
     mission_elements = []
-    if  red:
+    if red:
         mission_elements.append(await page.query_selector_all('[class*="mission_panel_red"]'))
     if yellow:
         mission_elements.append(await page.query_selector_all('[class*="mission_panel_yellow"]'))
     if green:
         mission_elements.append(await page.query_selector_all('[class*="mission_panel_green]'))
-    mission_elements = [element for element in mission_elements if int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute("timeleft")) <= timedlimit]##TODO check for timedlimit in non timed missions
+    mission_elements = [element for element in mission_elements if
+                        int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute(
+                            "timeleft")) <= timedlimit]  ##TODO check for timedlimit in non timed missions
     if returnid:
         mission_ids = []
         for element in mission_elements:
@@ -22,7 +40,7 @@ async def get_missions(page,red = False,yellow = False,green = False,timedlimit 
         return mission_elements
 
 
-async def alert_vehicle(page, vehicle):
+async def alert_vehicle(page, vehicle:str="GEN"):
     vehicle_button = await page.query_selector(f'[search_attribute*="{vehicle}"]')
     if not vehicle_button:
         print(f"\033[95mTASKS.manage_alert vehicle_button not found: {vehicle}\033[0m")

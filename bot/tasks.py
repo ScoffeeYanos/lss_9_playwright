@@ -54,7 +54,7 @@ async def missing_analyze(page,missing):
     if not missing:
         raise RuntimeError(f"Missing element 'missing_text' on mission page {id}")
     if (await missing.get_attribute('style')) == 'display: none; ':
-        alert = await alert_vehicle(page, "GEN")
+        alert = await alert_vehicle(page)
         if not alert:
             return -1
         await page.click('#alert_btn')
