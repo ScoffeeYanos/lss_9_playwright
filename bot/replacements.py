@@ -8,6 +8,8 @@ NAME_SETS = {
     "Rüstwagen": "RW",
     "ELW": "ELW",
     "GW-Öl": "GW-Öl",
+    "GW-A": "GW-A",
+    "GW-Atemschutz": "GW-A",
     "Schlauchwagen": "SW"
 }
 PERSONNEL_FW = {
@@ -17,7 +19,10 @@ PERSONNEL_FW = {
 }
 WATER_FW = {
     "LF": 2000,
-    "SW": 0.25,
     "default": 0,
     "water_vehicle": "LF"
+}
+WATER_FW_PC = {
+    "SW": 0.25,
+    "default": 0
 }

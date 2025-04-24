@@ -35,7 +35,7 @@ async def login(page, mail, password):
 
 async def manage_alert(page, id):
     await page.goto("https://www.leitstellenspiel.de/missions/" + str(id))
-    missing_vehicles = await missing_analyze(page,await get_missing_text_string(page))
+    missing_vehicles = await missing_analyze(page,id)
     alert = True
     print(missing_vehicles)
     if missing_vehicles == -1:
@@ -50,9 +50,10 @@ async def manage_alert(page, id):
         print(f"TASKS.manage_alert ALERTED")
 
 
-async def missing_analyze(page,missing):
+async def missing_analyze(page,id):
+    missing = await page.query_selector('[id="missing_text"]')
     if not missing:
-        raise RuntimeError(f"Missing element 'missing_text' on mission page {id}")
+        return -1
     if (await missing.get_attribute('style')) == 'display: none; ':
         alert = await alert_vehicle(page)
         if not alert:
@@ -122,15 +123,16 @@ async def missing_analyze(page,missing):
             if label > count:
                 missing = label - count
                 vehicles_to_send = math.ceil(missing / WATER_FW.get(WATER_FW.get("water_vehicle")))
-                vehicles[PERSONNEL_FW.get("water_vehicle")] = vehicles[PERSONNEL_FW.get("water_vehicle")] + vehicles_to_send
+                vehicles[WATER_FW.get("water_vehicle")] = vehicles[WATER_FW.get("water_vehicle")] + vehicles_to_send
 
     return vehicles
 
 
 async def manage_all_alerts(context,mainpage,sleeptime = 30):
     await refresh_imports()
-    mission_ids = await get_missions(mainpage,returnid=True)
+    mission_ids = await get_missions(mainpage,red=True,returnid=True)
     mission_page = await context.new_page()
+    print(mission_ids)
     for mission_id in mission_ids:
         await manage_alert(mission_page, mission_id)
     await mission_page.close()

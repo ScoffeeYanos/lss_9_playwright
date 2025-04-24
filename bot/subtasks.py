@@ -12,30 +12,30 @@ async def get_missions(page, red:bool=False, yellow:bool=False, green:bool=False
 
     :param page: Page to operate on. Needs to be opened main window or on alert list window
     :param red: include red alerts
-    :param yellow: include red alerts
-    :param green: include red alerts
+    :param yellow: include yellow alerts
+    :param green: include green alerts
     :param timedlimit: set timed missions max time value
     :param returnid: return only id of elements
     :return:
     """
     mission_elements = []
     if red:
-        mission_elements.append(await page.query_selector_all('[class*="mission_panel_red"]'))
+        mission_elements.extend(await page.query_selector_all('[class*="mission_panel_red"]'))
     if yellow:
-        mission_elements.append(await page.query_selector_all('[class*="mission_panel_yellow"]'))
+        mission_elements.extend(await page.query_selector_all('[class*="mission_panel_yellow"]'))
     if green:
-        mission_elements.append(await page.query_selector_all('[class*="mission_panel_green]'))
+        mission_elements.extend(await page.query_selector_all('[class*="mission_panel_green]'))
     mission_elements = [element for element in mission_elements if
-                        int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute(
-                            "timeleft")) <= timedlimit]  ##TODO check for timedlimit in non timed missions
+                        int(await (await element.query_selector('[class*="mission_overview_countdown"]')).get_attribute("timeleft")) <= timedlimit]
     if returnid:
         mission_ids = []
         for element in mission_elements:
-            mission_id = await element.get_attribute("mission_id")
+            mission_id = await element.get_attribute("id")
             if mission_id and mission_id.startswith("mission_panel_"):
                 id_split = mission_id.split("_")
                 if len(id_split) == 3 and id_split[2].isdigit():
                     mission_ids.append(int(id_split[2]))
+        return mission_ids
     else:
         return mission_elements
 
